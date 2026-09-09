@@ -52,10 +52,21 @@ describe('CommentsService', () => {
 
   it('rejects with 404 when the task does not exist', async () => {
     tasksRepository.findOneBy.mockResolvedValue(null);
+    // A valid author is mocked here deliberately: without it, this test
+    // would still pass even if the task-existence check were deleted,
+    // because usersRepository.findOneBy's unmocked return (undefined)
+    // would trip the *author* 404 check instead and mask the missing
+    // branch. Asserting usersRepository.findOneBy was never called is
+    // what actually pins this test to the task check, not the author one.
+    usersRepository.findOneBy.mockResolvedValue({ id: 7 } as User);
 
     await expect(service.addComment(999, { body: 'hi', authorId: 7 })).rejects.toThrow(
       NotFoundException,
     );
+    await expect(service.addComment(999, { body: 'hi', authorId: 7 })).rejects.toThrow(
+      'Task 999 not found',
+    );
+    expect(usersRepository.findOneBy).not.toHaveBeenCalled();
     expect(commentsRepository.create).not.toHaveBeenCalled();
     expect(commentsRepository.save).not.toHaveBeenCalled();
   });
